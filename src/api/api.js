@@ -12,6 +12,25 @@ const api = axios.create({
 // Shared refresh promise to prevent multiple simultaneous refresh requests
 let refreshPromise = null;
 
+// Keep other tabs in sync: when one tab stores new tokens, the others must
+// adopt them instead of refreshing with the (still valid, but older) token.
+if (typeof window !== 'undefined') {
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'refresh' && e.newValue === null) {
+      // Another tab logged out for real.
+      localStorage.removeItem('access');
+    }
+  });
+}
+
+// Endpoints that must never trigger a refresh/retry loop.
+const AUTH_ENDPOINTS = [
+  '/api/auth/login/',
+  '/api/auth/register/',
+  '/api/auth/token/refresh/',
+  '/api/auth/logout/',
+];
+
 // Request interceptor: attach access token
 api.interceptors.request.use(
   (config) => {
@@ -24,19 +43,45 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+const doRefresh = () => {
+  const refresh = localStorage.getItem('refresh');
+  if (!refresh) return Promise.reject(new Error('no-refresh-token'));
+
+  return axios
+    .post(`${API_BASE_URL}/api/auth/token/refresh/`, { refresh })
+    .then((res) => {
+      localStorage.setItem('access', res.data.access);
+      if (res.data.refresh) {
+        localStorage.setItem('refresh', res.data.refresh);
+      }
+      return res.data.access;
+    })
+    .catch((err) => {
+      // Only a real rejection of the token itself (400/401) means the session
+      // is really over. A 5xx or a network error must NOT destroy the session,
+      // otherwise a transient server hiccup logs the user out.
+      const status = err.response?.status;
+      if (status === 400 || status === 401) {
+        localStorage.removeItem('access');
+        localStorage.removeItem('refresh');
+      }
+      throw err;
+    });
+};
+
 // Response interceptor: handle 401 and refresh token
 api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
+    // Network error / timeout: no config, nothing to retry.
+    if (!originalRequest) {
+      return Promise.reject(error);
+    }
+
     // Skip retry for auth endpoints to avoid infinite loops
-    if (
-      originalRequest.url.includes('/api/auth/login/') ||
-      originalRequest.url.includes('/api/auth/register/') ||
-      originalRequest.url.includes('/api/auth/token/refresh/') ||
-      originalRequest.url.includes('/api/auth/logout/')
-    ) {
+    if (AUTH_ENDPOINTS.some((url) => originalRequest.url?.includes(url))) {
       return Promise.reject(error);
     }
 
@@ -46,14 +91,6 @@ api.interceptors.response.use(
     }
 
     originalRequest._retry = true;
-    const refresh = localStorage.getItem('refresh');
-
-    if (!refresh) {
-      // No refresh token available — clear and let AuthContext handle redirect
-      localStorage.removeItem('access');
-      localStorage.removeItem('refresh');
-      return Promise.reject(error);
-    }
 
     // If a refresh is already in progress, wait for it
     if (refreshPromise) {
@@ -66,31 +103,9 @@ api.interceptors.response.use(
       }
     }
 
-    // Start a new refresh
-    refreshPromise = axios
-      .post(`${API_BASE_URL}/api/auth/token/refresh/`, { refresh })
-      .then((res) => {
-        const newAccess = res.data.access;
-        localStorage.setItem('access', newAccess);
-
-        // Save rotated refresh token if backend returns one
-        if (res.data.refresh) {
-          localStorage.setItem('refresh', res.data.refresh);
-        }
-
-        return newAccess;
-      })
-      .catch((refreshError) => {
-        // Only clear tokens if refresh was truly rejected (not network error)
-        if (refreshError.response) {
-          localStorage.removeItem('access');
-          localStorage.removeItem('refresh');
-        }
-        throw refreshError;
-      })
-      .finally(() => {
-        refreshPromise = null;
-      });
+    refreshPromise = doRefresh().finally(() => {
+      refreshPromise = null;
+    });
 
     try {
       const newAccess = await refreshPromise;

@@ -24,15 +24,15 @@ export const AuthProvider = ({ children }) => {
       const userData = await getMe();
       setUser(userData);
     } catch (err) {
-      // If access expired, the interceptor will try refresh automatically.
-      // If interceptor also failed, check if we still have tokens.
-      const stillHasAccess = localStorage.getItem('access');
-      if (!stillHasAccess) {
-        // Interceptor cleared tokens — refresh was truly invalid
+      // The interceptor already tried to refresh. Tokens are only removed
+      // when the refresh token is genuinely rejected, so if they are still
+      // here the session is alive and this was a transient failure
+      // (5xx or network). Logging out here would throw the user out on
+      // every hiccup, so keep the tokens and let the next request retry.
+      if (!localStorage.getItem('access') && !localStorage.getItem('refresh')) {
         setUser(null);
       } else {
-        // Network error or 5xx — don't logout, just set null for now
-        console.warn('Could not load user profile, but keeping tokens:', err);
+        console.warn('Could not load profile, session kept:', err?.message);
         setUser(null);
       }
     } finally {
