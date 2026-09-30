@@ -1,6 +1,12 @@
 import axios from 'axios';
 
-const API_BASE_URL = "https://shop-becend.vercel.app";
+// Base URL of the backend, without a trailing slash and WITHOUT /api
+// (every call below appends /api/... itself).
+// Set VITE_API_URL in .env to point the frontend at another deployment,
+// for example the Render service instead of Vercel.
+const API_BASE_URL = (
+  import.meta.env.VITE_API_URL || 'https://shop-becend.vercel.app'
+).replace(/\/+$/, '');
 
 const api = axios.create({
   baseURL: API_BASE_URL,

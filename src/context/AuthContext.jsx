@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { login as apiLogin, register as apiRegister, getMe, logoutUser, refreshToken as apiRefreshToken } from '../api/auth';
 import toast from 'react-hot-toast';
+import { formatRegisterError } from '../utils/authErrors';
 
 const AuthContext = createContext(null);
 
@@ -101,19 +102,7 @@ export const AuthProvider = ({ children }) => {
       toast.success('Регистрация прошла успешно! Добро пожаловать.');
       return data;
     } catch (err) {
-      const resData = err.response?.data;
-      let errorMsg = 'Ошибка при регистрации';
-
-      if (typeof resData === 'object' && resData !== null) {
-        const firstField = Object.keys(resData)[0];
-        const val = resData[firstField];
-        if (Array.isArray(val)) {
-          errorMsg = `${firstField}: ${val[0]}`;
-        } else if (typeof val === 'string') {
-          errorMsg = val;
-        }
-      }
-      toast.error(errorMsg);
+      toast.error(formatRegisterError(err));
       throw err;
     } finally {
       setLoading(false);

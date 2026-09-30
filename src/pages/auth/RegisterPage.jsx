@@ -13,8 +13,8 @@ import {
   Eye,
   EyeOff,
 } from 'lucide-react';
-import toast from 'react-hot-toast';
 import { formatErrorMessage } from '../../components/common/ErrorState';
+import { emailTakenMessage, firstErrorMessage, isEmailTakenMessage } from '../../utils/authErrors';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
@@ -74,13 +74,21 @@ export const RegisterPage = () => {
       navigate('/');
     } catch (err) {
       const data = err.response?.data;
+      const cleanEmail = formData.email.trim();
+
       if (data?.username) {
         setErrorMessage(`Логин "${cleanUsername}" уже занят. Пожалуйста, придумайте другой логин (например: "${cleanUsername}1" или "${cleanUsername}_shop").`);
       } else if (data?.password) {
         const pErr = Array.isArray(data.password) ? data.password.join('. ') : data.password;
         setErrorMessage(`Требования к паролю: ${pErr}`);
       } else if (data?.email) {
-        setErrorMessage('Укажите корректный адрес электронной почты или оставьте поле пустым.');
+        // Сервер отдаёт одну и ту же ошибку `email` для двух разных случаев,
+        // поэтому «занят» и «некорректный формат» приходится различать по тексту.
+        if (isEmailTakenMessage(firstErrorMessage(data.email))) {
+          setErrorMessage(emailTakenMessage(cleanEmail));
+        } else {
+          setErrorMessage('Укажите корректный адрес электронной почты или оставьте поле пустым.');
+        }
       } else {
         const msg = formatErrorMessage(err);
         setErrorMessage(msg);
