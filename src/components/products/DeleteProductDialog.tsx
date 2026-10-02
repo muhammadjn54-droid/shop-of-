@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { deleteProduct } from '../../api/products';
 import { Trash2, AlertTriangle, Loader2 } from 'lucide-react';
 import toast from 'react-hot-toast';

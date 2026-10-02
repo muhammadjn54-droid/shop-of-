@@ -42,9 +42,3 @@ export const getProductGallery = (
 
   return list;
 };
-
-/**
- * Kept for backward compatibility. Photos are uploaded to the backend,
- * so there is nothing to cache locally anymore.
- */
-export const saveProductGallery = (): void => {};

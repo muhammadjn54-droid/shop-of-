@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { Outlet } from 'react-router';
 import Topbar from './Topbar';
 import Sidebar from './Sidebar';

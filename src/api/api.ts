@@ -32,7 +32,6 @@ if (typeof window !== 'undefined') {
 // Endpoints that must never trigger a refresh/retry loop.
 const AUTH_ENDPOINTS: string[] = [
   '/api/auth/login/',
-  '/api/auth/register/',
   '/api/auth/token/refresh/',
   '/api/auth/logout/',
 ];

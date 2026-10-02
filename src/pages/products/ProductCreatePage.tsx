@@ -1,4 +1,4 @@
-import React, { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { createProduct } from '../../api/products';
 import {
@@ -6,7 +6,6 @@ import {
   Upload,
   Calendar,
   Package,
-  DollarSign,
   Loader2,
   Check,
   X,

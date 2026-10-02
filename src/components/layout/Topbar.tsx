@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Menu, User, LogOut, FileSpreadsheet, ChevronDown, Calendar, Mail } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';

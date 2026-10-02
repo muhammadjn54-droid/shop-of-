@@ -1,5 +1,4 @@
-import React from 'react';
-import { ShoppingCart, Calendar, DollarSign, ArrowDownLeft, X, Package } from 'lucide-react';
+import { ShoppingCart, Calendar, Package } from 'lucide-react';
 import { formatMoney, formatDateTime } from '../../utils/formatters';
 import type { Sale } from '../../types';
 

@@ -1,16 +1,6 @@
 import api from './api';
 import type { User, AuthTokens } from '../types';
 
-export const register = async (userData: {
-  username: string;
-  password: string;
-  password2?: string;
-  email?: string;
-}): Promise<AuthTokens> => {
-  const response = await api.post<AuthTokens>('/api/auth/register/', userData);
-  return response.data;
-};
-
 export const login = async (credentials: {
   username: string;
   password: string;

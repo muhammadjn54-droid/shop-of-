@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
 import { getProduct, updateProduct } from '../../api/products';
 import {

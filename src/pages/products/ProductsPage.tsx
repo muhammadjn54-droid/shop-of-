@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router';
 import { getProducts, getLowStock, getProductByBarcode } from '../../api/products';
 import {
@@ -17,7 +17,7 @@ import {
 } from 'lucide-react';
 import SearchInput from '../../components/common/SearchInput';
 import Pagination from '../../components/common/Pagination';
-import LoadingState, { ExcelTableSkeleton } from '../../components/common/LoadingState';
+import { ExcelTableSkeleton } from '../../components/common/LoadingState';
 import EmptyState from '../../components/common/EmptyState';
 import ErrorState from '../../components/common/ErrorState';
 import ProductDetailsDialog from '../../components/products/ProductDetailsDialog';

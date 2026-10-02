@@ -1,17 +1,10 @@
-import React, { useState, useEffect, type FormEvent } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router';
+import { useState, type FormEvent } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { FileSpreadsheet, Lock, User, Loader2, ArrowRight, Eye, EyeOff } from 'lucide-react';
-
-interface LocationState {
-  username?: string;
-  message?: string;
-}
+import { FileSpreadsheet, Lock, User, Loader2, ArrowRight, Eye, EyeOff, KeyRound } from 'lucide-react';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const location = useLocation();
-  const locationState = location.state as LocationState | null;
   const { login } = useAuth();
 
   const [username, setUsername] = useState('');
@@ -20,12 +13,11 @@ export const LoginPage = () => {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // Prefill username if redirected from registration
-  useEffect(() => {
-    if (locationState?.username) {
-      setUsername(locationState.username);
-    }
-  }, [locationState]);
+  const handleFillCredentials = () => {
+    setUsername('Maktabiman');
+    setPassword('Mactab_2211');
+    setErrorMessage('');
+  };
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -84,17 +76,31 @@ export const LoginPage = () => {
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-4 text-xs">
-          {locationState?.message && (
-            <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded text-xs font-medium">
-              {locationState.message}
-            </div>
-          )}
-
           {errorMessage && (
             <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded text-xs">
               {errorMessage}
             </div>
           )}
+
+          {/* Quick AutoFill Preset Button */}
+          <div className="bg-[#f0fdf4] border border-emerald-200 rounded p-3 flex items-center justify-between gap-3">
+            <div className="text-left">
+              <div className="text-[11px] font-semibold text-emerald-900">Данные аккаунта:</div>
+              <div className="text-[10px] text-emerald-700 font-mono mt-0.5">
+                Maktabiman / Mactab_2211
+              </div>
+            </div>
+            <button
+              type="button"
+              id="autofill-btn"
+              onClick={handleFillCredentials}
+              className="shrink-0 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6936] active:bg-[#094d27] text-white rounded text-xs font-medium flex items-center gap-1.5 transition-colors cursor-pointer shadow-xs"
+              title="Вставить логин Maktabiman и пароль Mactab_2211"
+            >
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Заполнить</span>
+            </button>
+          </div>
 
           <div>
             <label className="block font-medium text-[#334155] mb-1">
@@ -104,6 +110,7 @@ export const LoginPage = () => {
               <User className="absolute left-3 w-4 h-4 text-[#94a3b8]" />
               <input
                 type="text"
+                id="login-username-input"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -111,13 +118,13 @@ export const LoginPage = () => {
                 autoCorrect="off"
                 spellCheck="false"
                 autoComplete="username"
-                autoFocus={!locationState?.username}
-                placeholder="Логин или Email (например: Mansur)"
+                autoFocus
+                placeholder="Логин или Email (например: Maktabiman)"
                 className="w-full pl-9 pr-3 py-2 bg-white border border-[#cbd5e1] rounded text-xs text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:border-[#107c41] focus:ring-1 focus:ring-[#107c41] transition-all"
               />
             </div>
             <p className="text-[11px] text-[#64748b] mt-1">
-              Можно ввести логин или email. Регистр букв имеет значение.
+              Регистр букв имеет значение.
             </p>
           </div>
 
@@ -129,6 +136,7 @@ export const LoginPage = () => {
               <Lock className="absolute left-3 w-4 h-4 text-[#94a3b8]" />
               <input
                 type={showPassword ? 'text' : 'password'}
+                id="login-password-input"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -136,7 +144,6 @@ export const LoginPage = () => {
                 autoCorrect="off"
                 spellCheck="false"
                 autoComplete="current-password"
-                autoFocus={!!locationState?.username}
                 placeholder="••••••••"
                 className="w-full pl-9 pr-10 py-2 bg-white border border-[#cbd5e1] rounded text-xs text-[#1e293b] placeholder-[#94a3b8] focus:outline-none focus:border-[#107c41] focus:ring-1 focus:ring-[#107c41] transition-all"
               />
@@ -154,7 +161,7 @@ export const LoginPage = () => {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-2 px-4 bg-[#107c41] hover:bg-[#0d6936] text-white font-semibold rounded text-xs flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-50 mt-2"
+            className="w-full py-2 px-4 bg-[#107c41] hover:bg-[#0d6936] text-white font-semibold rounded text-xs flex items-center justify-center gap-2 transition-all shadow-xs disabled:opacity-50 mt-2 cursor-pointer"
           >
             {loading ? (
               <>
@@ -168,18 +175,6 @@ export const LoginPage = () => {
               </>
             )}
           </button>
-
-          <div className="pt-3 border-t border-[#e2e8f0] text-center">
-            <p className="text-xs text-[#64748b]">
-              Нет аккаунта?{' '}
-              <Link
-                to="/register"
-                className="font-semibold text-[#107c41] hover:text-[#0d6936] hover:underline transition-colors"
-              >
-                Зарегистрироваться
-              </Link>
-            </p>
-          </div>
         </form>
       </div>
     </div>

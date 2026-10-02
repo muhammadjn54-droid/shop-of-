@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type KeyboardEvent } from 'react';
+import { useState, useEffect, type KeyboardEvent } from 'react';
 import { Search, X } from 'lucide-react';
 
 export interface SearchInputProps {

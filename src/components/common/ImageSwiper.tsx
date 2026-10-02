@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type MouseEvent } from 'react';
+import { useState, useEffect, type MouseEvent } from 'react';
 import { ChevronLeft, ChevronRight, Package, Image as ImageIcon } from 'lucide-react';
 
 export interface ImageSwiperProps {

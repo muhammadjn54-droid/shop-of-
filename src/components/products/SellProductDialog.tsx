@@ -1,4 +1,4 @@
-import React, { useState, useEffect, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { sellProduct } from '../../api/products';
 import { ShoppingCart, Loader2, AlertCircle, Package } from 'lucide-react';
 import toast from 'react-hot-toast';

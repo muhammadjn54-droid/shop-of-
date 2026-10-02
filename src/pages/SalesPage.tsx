@@ -1,17 +1,15 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { getSales } from '../api/sales';
 import {
   ShoppingCart,
   RefreshCw,
-  Eye,
-  FileSpreadsheet,
   ArrowUpDown,
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
 import SearchInput from '../components/common/SearchInput';
 import Pagination from '../components/common/Pagination';
-import LoadingState, { ExcelTableSkeleton } from '../components/common/LoadingState';
+import { ExcelTableSkeleton } from '../components/common/LoadingState';
 import EmptyState from '../components/common/EmptyState';
 import ErrorState from '../components/common/ErrorState';
 import SaleDetailsDialog from '../components/sales/SaleDetailsDialog';

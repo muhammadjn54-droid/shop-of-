@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { getDashboard } from '../api/dashboard';
 import {
@@ -8,11 +8,9 @@ import {
   TrendingUp,
   TrendingDown,
   DollarSign,
-  AlertCircle,
   Plus,
   ArrowRight,
   RefreshCw,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { formatMoney, formatDateTime, formatNumber } from '../utils/formatters';
 import LoadingState from '../components/common/LoadingState';

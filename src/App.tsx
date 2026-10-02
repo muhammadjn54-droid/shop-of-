@@ -1,5 +1,5 @@
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router';
+import { Suspense, lazy } from 'react';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 
 import { AuthProvider } from './context/AuthContext';
@@ -10,7 +10,6 @@ import LoadingState from './components/common/LoadingState';
 
 // Lazy loading all pages for optimal performance and code splitting
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
-const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProductsPage = lazy(() => import('./pages/products/ProductsPage'));
 const ProductCreatePage = lazy(() => import('./pages/products/ProductCreatePage'));
@@ -62,14 +61,7 @@ export function App() {
                 </GuestRoute>
               }
             />
-            <Route
-              path="/register"
-              element={
-                <GuestRoute>
-                  <RegisterPage />
-                </GuestRoute>
-              }
-            />
+            <Route path="/register" element={<Navigate to="/login" replace />} />
 
             {/* Protected Application Routes */}
             <Route

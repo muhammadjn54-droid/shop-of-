@@ -1,4 +1,4 @@
-import React, { type ComponentType } from 'react';
+import type { ComponentType } from 'react';
 import { PackageOpen, Plus } from 'lucide-react';
 
 export interface EmptyStateProps {

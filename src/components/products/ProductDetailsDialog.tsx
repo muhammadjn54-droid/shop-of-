@@ -1,13 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router';
 import { getProduct, getProductSales } from '../../api/products';
 import {
   Package,
   Calendar,
-  DollarSign,
-  TrendingUp,
-  TrendingDown,
-  Layers,
   History,
   ShoppingCart,
   PlusCircle,
@@ -15,7 +11,6 @@ import {
   Edit,
   Trash2,
   Loader2,
-  Clock,
   Info,
   Barcode,
 } from 'lucide-react';

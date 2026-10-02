@@ -1,15 +1,10 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { getStatistics } from '../api/dashboard';
 import {
   BarChart3,
   RefreshCw,
-  TrendingUp,
-  TrendingDown,
   Package,
-  ShoppingCart,
   DollarSign,
-  Scale,
-  FileSpreadsheet,
 } from 'lucide-react';
 import { formatMoney, formatNumber } from '../utils/formatters';
 import LoadingState from '../components/common/LoadingState';
