@@ -22,6 +22,7 @@ export const Sidebar = ({ isOpen, onClose }: SidebarProps) => {
     { name: 'Товары', path: '/products', icon: Package },
     { name: 'Продажи', path: '/sales', icon: ShoppingCart },
     { name: 'Статистика', path: '/statistics', icon: BarChart3 },
+    { name: 'Мой аккаунт', path: '/account', icon: UserIcon },
   ];
 
   return (

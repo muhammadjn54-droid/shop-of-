@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { getProducts, getLowStock, getProductByBarcode } from '../../api/products';
 import {
@@ -42,6 +42,7 @@ export const ProductsPage = () => {
   const [isLowStockFilter, setIsLowStockFilter] = useState(false);
 
   // Status states
+  const requestSequence = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
@@ -57,6 +58,7 @@ export const ProductsPage = () => {
 
   // Fetch products
   const fetchProducts = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
@@ -70,21 +72,25 @@ export const ProductsPage = () => {
         ? await getLowStock(params)
         : await getProducts(params);
 
+      if (sequence !== requestSequence.current) return;
       // Backend pagination: { count, next, previous, results: [...] }
       setProducts(res.results || []);
       setTotalCount(res.count || (res.results ? res.results.length : 0));
       setHasNext(!!res.next);
       setHasPrevious(!!res.previous);
     } catch (err) {
+      if (sequence !== requestSequence.current) return;
+      if ((err as { response?: { status?: number } }).response?.status === 404 && currentPage > 1) { setCurrentPage(page => page - 1); return; }
       console.error('Error fetching products:', err);
       setError(err);
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [currentPage, searchTerm, ordering, isLowStockFilter]);
 
   useEffect(() => {
-    fetchProducts();
+    void fetchProducts();
+    return () => { ++requestSequence.current; };
   }, [fetchProducts]);
 
   // Handle column header sorting
@@ -298,7 +304,7 @@ export const ProductsPage = () => {
               {/* Table Body */}
               <tbody className="divide-y divide-[#e2e8f0]">
                 {products.map((item, index) => {
-                  const rowNumber = (currentPage - 1) * 10 + index + 1;
+                  const rowNumber = (currentPage - 1) * 20 + index + 1;
                   const isLow = item.remaining_quantity <= 5 && item.remaining_quantity > 0;
                   const isOut = item.remaining_quantity <= 0;
 
@@ -441,7 +447,7 @@ export const ProductsPage = () => {
                               setIsDeleteOpen(true);
                             }}
                             className="p-1 rounded text-[#dc2626] hover:bg-[#fee2e2] transition-colors"
-                            title="Удалить"
+                            title="В архив"
                           >
                             <Trash2 className="w-3.5 h-3.5" />
                           </button>
@@ -459,7 +465,7 @@ export const ProductsPage = () => {
         <Pagination
           currentPage={currentPage}
           totalCount={totalCount}
-          pageSize={10}
+          pageSize={20}
           hasNext={hasNext}
           hasPrevious={hasPrevious}
           onPageChange={(page) => setCurrentPage(page)}

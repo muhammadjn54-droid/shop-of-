@@ -86,7 +86,7 @@ export const addStock = async (
 
 export const returnProduct = async (
   id: string | number,
-  returnData: { quantity: number }
+  returnData: { quantity: number; sale_id?: number }
 ): Promise<{ message?: string; product?: Product }> => {
   const response = await api.post<{ message?: string; product?: Product }>(
     `/api/products/${id}/return/`,

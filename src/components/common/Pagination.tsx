@@ -12,7 +12,7 @@ export interface PaginationProps {
 export const Pagination = ({
   currentPage = 1,
   totalCount = 0,
-  pageSize = 10,
+  pageSize = 20,
   onPageChange,
   hasNext = false,
   hasPrevious = false,

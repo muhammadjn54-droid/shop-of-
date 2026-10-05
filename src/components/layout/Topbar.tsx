@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
-import { Menu, User, LogOut, FileSpreadsheet, ChevronDown, Calendar, Mail } from 'lucide-react';
+import { Menu, User, LogOut, FileSpreadsheet, ChevronDown } from 'lucide-react';
 import { formatDate } from '../../utils/formatters';
 
 export interface TopbarProps {
@@ -10,7 +11,7 @@ export interface TopbarProps {
 export const Topbar = ({ onToggleSidebar }: TopbarProps) => {
   const { user, logout } = useAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
-  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const navigate = useNavigate();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -82,7 +83,7 @@ export const Topbar = ({ onToggleSidebar }: TopbarProps) => {
               <button
                 onClick={() => {
                   setDropdownOpen(false);
-                  setAccountModalOpen(true);
+                  navigate('/account');
                 }}
                 className="w-full text-left px-3 py-2 flex items-center gap-2 hover:bg-[#f1f5f9] text-[#334155] transition-colors"
               >
@@ -105,65 +106,6 @@ export const Topbar = ({ onToggleSidebar }: TopbarProps) => {
         </div>
       </header>
 
-      {/* Account Info Modal */}
-      {accountModalOpen && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-[1px] flex items-center justify-center p-4">
-          <div className="bg-white rounded-md border border-[#cbd5e1] shadow-xl w-full max-w-sm overflow-hidden animate-in fade-in zoom-in-95 duration-100">
-            <div className="bg-[#107c41] text-white px-4 py-2.5 flex items-center justify-between">
-              <h3 className="font-semibold text-xs flex items-center gap-2">
-                <User className="w-4 h-4" />
-                <span>Мой аккаунт</span>
-              </h3>
-              <button
-                onClick={() => setAccountModalOpen(false)}
-                className="text-emerald-100 hover:text-white text-base leading-none"
-              >
-                ✕
-              </button>
-            </div>
-
-            <div className="p-4 space-y-3 text-xs">
-              <div className="flex items-center gap-3 pb-3 border-b border-[#e2e8f0]">
-                <div className="w-12 h-12 rounded-full bg-[#f0fdf4] text-[#107c41] border border-[#86efac] flex items-center justify-center text-lg font-bold">
-                  {user?.username ? user.username.charAt(0).toUpperCase() : 'U'}
-                </div>
-                <div>
-                  <h4 className="font-bold text-sm text-[#1e293b]">{user?.username}</h4>
-                  <p className="text-[11px] text-[#107c41] font-medium">Аккаунт активен</p>
-                </div>
-              </div>
-
-              <div className="space-y-2 text-[#475569]">
-                <div className="flex items-center justify-between py-1 border-b border-[#f1f5f9]">
-                  <span className="text-[#64748b]">ID пользователя:</span>
-                  <span className="font-mono font-medium text-[#1e293b]">{user?.id || '—'}</span>
-                </div>
-                <div className="flex items-center justify-between py-1 border-b border-[#f1f5f9]">
-                  <span className="text-[#64748b] flex items-center gap-1">
-                    <Mail className="w-3 h-3" /> Email:
-                  </span>
-                  <span className="font-medium text-[#1e293b]">{user?.email || 'Не указан'}</span>
-                </div>
-                <div className="flex items-center justify-between py-1">
-                  <span className="text-[#64748b] flex items-center gap-1">
-                    <Calendar className="w-3 h-3" /> Регистрация:
-                  </span>
-                  <span className="font-medium text-[#1e293b]">{formatDate(user?.date_joined)}</span>
-                </div>
-              </div>
-
-              <div className="pt-3 border-t border-[#e2e8f0] flex justify-end">
-                <button
-                  onClick={() => setAccountModalOpen(false)}
-                  className="px-3 py-1.5 bg-[#f1f5f9] hover:bg-[#e2e8f0] text-[#334155] rounded font-medium text-xs transition-colors"
-                >
-                  Закрыть
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </>
   );
 };

@@ -1,150 +1,129 @@
-import {
-  createContext,
-  useContext,
-  useState,
-  useEffect,
-  type ReactNode,
-  type Dispatch,
-  type SetStateAction,
-} from 'react';
-import {
-  login as apiLogin,
-  getMe,
-  logoutUser,
-} from '../api/auth';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from 'react';
+import { getMe, login as apiLogin, register as apiRegister, logoutUser, type RegisterCredentials } from '../api/auth';
+import { clearSession, getSession, SESSION_EVENT, SESSION_KEY, startSession, updateSessionUser } from '../api/session';
 import toast from 'react-hot-toast';
-import type { User } from '../types';
+import type { AuthTokens, User } from '../types';
 
 export interface AuthContextType {
   user: User | null;
   loading: boolean;
+  sessionError: unknown;
+  retrySession: () => Promise<void>;
   isAuthenticated: boolean;
   login: (credentials: { username: string; password: string }) => Promise<User>;
+  register: (credentials: RegisterCredentials) => Promise<User>;
   logout: () => Promise<void>;
   setUser: Dispatch<SetStateAction<User | null>>;
 }
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
+export function AuthProvider({ children }: { children: ReactNode }) {
+  const [user, setUserState] = useState<User | null>(() => getSession()?.user ?? null);
   const [loading, setLoading] = useState(true);
+  const [sessionError, setSessionError] = useState<unknown>(null);
+  const activeId = useRef(getSession()?.id);
+  const requestVersion = useRef(0);
 
-  // Initialize auth state from stored tokens
-  useEffect(() => {
-    const initAuth = async () => {
-      const access = localStorage.getItem('access');
-      const refresh = localStorage.getItem('refresh');
-
-      if (!access && !refresh) {
-        setUser(null);
-        setLoading(false);
-        return;
+  const retrySession = useCallback(async () => {
+    const version = ++requestVersion.current;
+    const session = getSession();
+    activeId.current = session?.id;
+    setSessionError(null);
+    if (!session) {
+      setUserState(null);
+      setLoading(false);
+      return;
+    }
+    setLoading(!session.user);
+    try {
+      const profile = await getMe();
+      if (version !== requestVersion.current || getSession()?.id !== session.id) return;
+      updateSessionUser(session.id, profile);
+      setUserState(profile);
+    } catch (error) {
+      if (version !== requestVersion.current) return;
+      const current = getSession();
+      if (current?.id === session.id) {
+        setUserState(current.user ?? null);
+        setSessionError(error);
       }
-
-      try {
-        // First attempt to get profile with current access token
-        const userData = await getMe();
-        setUser(userData);
-      } catch (err: unknown) {
-        // The interceptor already tried to refresh. Tokens are only removed
-        // when the refresh token is genuinely rejected, so if they are still
-        // here the session is alive and this was a transient failure
-        // (5xx or network). Logging out here would throw the user out on
-        // every hiccup, so keep the tokens and let the next request retry.
-        if (!localStorage.getItem('access') && !localStorage.getItem('refresh')) {
-          setUser(null);
-        } else {
-          const message = err instanceof Error ? err.message : String(err);
-          console.warn('Could not load profile, session kept:', message);
-          setUser(null);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    initAuth();
+    } finally {
+      if (version === requestVersion.current) setLoading(false);
+    }
   }, []);
 
-  // Login handler
-  const login = async (credentials: { username: string; password: string }): Promise<User> => {
-    setLoading(true);
-    const rawInput = (credentials.username || '').trim();
-    const password = credentials.password;
+  useEffect(() => {
+    const sync = () => {
+      const session = getSession();
+      if (session?.id !== activeId.current) {
+        ++requestVersion.current;
+        activeId.current = session?.id;
+        setUserState(session?.user ?? null);
+        setSessionError(null);
+        setLoading(false);
+        if (session && !session.user) void retrySession();
+      } else if (session?.user) setUserState(session.user);
+    };
+    const onStorage = (event: StorageEvent) => {
+      if (event.key === SESSION_KEY || event.key === null) sync();
+    };
+    window.addEventListener(SESSION_EVENT, sync);
+    window.addEventListener('storage', onStorage);
+    const onOnline = () => { if (getSession()) void retrySession(); };
+    window.addEventListener('online', onOnline);
+    void retrySession();
+    return () => {
+      ++requestVersion.current;
+      window.removeEventListener(SESSION_EVENT, sync);
+      window.removeEventListener('storage', onStorage);
+      window.removeEventListener('online', onOnline);
+    };
+  }, [retrySession]);
 
-    try {
-      const data = await apiLogin({ username: rawInput, password });
-
-      if (data.access) {
-        localStorage.setItem('access', data.access);
-      }
-      if (data.refresh) {
-        localStorage.setItem('refresh', data.refresh);
-      }
-
-      // Fetch user profile
-      const userData = await getMe();
-      setUser(userData);
-      toast.success(`Добро пожаловать, ${userData.username || 'пользователь'}!`);
-      return userData;
-    } catch (err: unknown) {
-      const axiosErr = err as {
-        response?: {
-          data?: {
-            detail?: string;
-            non_field_errors?: string[];
-          };
-        };
-      };
-      const errorMsg =
-        axiosErr.response?.data?.detail ||
-        axiosErr.response?.data?.non_field_errors?.[0] ||
-        'Неверное имя пользователя или пароль';
-      toast.error(errorMsg);
-      throw err;
-    } finally {
-      setLoading(false);
-    }
+  const acceptLogin = async (tokens: AuthTokens): Promise<User> => {
+    ++requestVersion.current;
+    const session = startSession(tokens);
+    const profile = tokens.user ?? await getMe();
+    if (getSession()?.id !== session.id) throw new Error('Сессия изменилась. Войдите снова.');
+    updateSessionUser(session.id, profile);
+    setUserState(profile);
+    setSessionError(null);
+    setLoading(false);
+    toast.success('Добро пожаловать, ' + (profile.first_name || profile.username) + '!');
+    return profile;
   };
 
-  // Logout handler — fires ONLY when user clicks "Выйти"
-  const logout = async (): Promise<void> => {
-    const refresh = localStorage.getItem('refresh');
-    try {
-      if (refresh) {
-        await logoutUser(refresh);
-      }
-    } catch (e) {
-      console.warn('Logout error ignored:', e);
-    } finally {
-      localStorage.removeItem('access');
-      localStorage.removeItem('refresh');
-      setUser(null);
-      toast.success('Вы вышли из системы');
+  const login = async (credentials: { username: string; password: string }) =>
+    acceptLogin(await apiLogin({ ...credentials, username: credentials.username.trim() }));
+  const register = async (credentials: RegisterCredentials) =>
+    acceptLogin(await apiRegister({ ...credentials, username: credentials.username.trim() }));
+
+  const logout = async () => {
+    const session = getSession();
+    clearSession();
+    setUserState(null);
+    setLoading(false);
+    setSessionError(null);
+    if (session?.refresh) {
+      try { await logoutUser(session.refresh); }
+      catch { toast.error('Вы вышли на этом устройстве. Сервер не подтвердил завершение сессии.'); return; }
     }
+    toast.success('Вы вышли из системы');
   };
 
-  return (
-    <AuthContext.Provider
-      value={{
-        user,
-        loading,
-        isAuthenticated: !!user,
-        login,
-        logout,
-        setUser,
-      }}
-    >
-      {children}
-    </AuthContext.Provider>
-  );
-};
+  const setUser: Dispatch<SetStateAction<User | null>> = (value) => {
+    const session = getSession();
+    const next = typeof value === 'function' ? value(session?.user ?? user) : value;
+    if (session && next) updateSessionUser(session.id, next);
+    setUserState(next);
+  };
 
-export const useAuth = (): AuthContextType => {
+  return <AuthContext.Provider value={{ user, loading, sessionError, retrySession, isAuthenticated: !!user, login, register, logout, setUser }}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth(): AuthContextType {
   const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within an AuthProvider');
   return context;
-};
+}

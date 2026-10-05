@@ -1,31 +1,30 @@
-import api from './api';
+import api, { authApi } from './api';
 import type { User, AuthTokens } from '../types';
 
-export const login = async (credentials: {
+export interface RegisterCredentials {
   username: string;
+  email?: string;
   password: string;
-}): Promise<AuthTokens> => {
-  const response = await api.post<AuthTokens>('/api/auth/login/', credentials);
-  return response.data;
+  password2: string;
+}
+
+export const login = async (credentials: { username: string; password: string }): Promise<AuthTokens> =>
+  (await authApi.post<AuthTokens>('/api/auth/login/', credentials)).data;
+
+export const register = async (credentials: RegisterCredentials): Promise<AuthTokens> =>
+  (await authApi.post<AuthTokens>('/api/auth/register/', credentials)).data;
+
+export const getMe = async (): Promise<User> => (await api.get<User>('/api/auth/me/')).data;
+
+export const updateProfile = async (profile: { username: string; first_name?: string; last_name?: string }): Promise<User> =>
+  (await api.patch<User>('/api/auth/me/', profile)).data;
+
+export const logoutUser = async (refresh: string): Promise<void> => {
+  await authApi.post('/api/auth/logout/', { refresh });
 };
 
-export const getMe = async (): Promise<User> => {
-  const response = await api.get<User>('/api/auth/me/');
-  return response.data;
-};
+export const requestPasswordReset = async (email: string): Promise<{ message: string }> =>
+  (await authApi.post('/api/auth/forgot-password/', { email })).data;
 
-export const logoutUser = async (refreshToken: string): Promise<unknown> => {
-  try {
-    const response = await api.post('/api/auth/logout/', { refresh: refreshToken });
-    return response.data;
-  } catch (err) {
-    // Even if logout fails on server (e.g. expired refresh token), proceed client-side
-    console.warn('Logout API error:', err);
-    return null;
-  }
-};
-
-export const refreshToken = async (refresh: string): Promise<{ access: string }> => {
-  const response = await api.post<{ access: string }>('/api/auth/token/refresh/', { refresh });
-  return response.data;
-};
+export const confirmPasswordReset = async (data: { uid: string; token: string; password: string; confirm_password: string }): Promise<{ message: string }> =>
+  (await authApi.post('/api/auth/reset-password/', data)).data;

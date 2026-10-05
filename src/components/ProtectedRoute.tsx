@@ -2,9 +2,10 @@ import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import SessionRecovery from './SessionRecovery';
 
 export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
-  const { user, loading } = useAuth();
+  const { user, loading, sessionError } = useAuth();
 
   if (loading) {
     return (
@@ -16,6 +17,8 @@ export const ProtectedRoute = ({ children }: { children: ReactNode }) => {
       </div>
     );
   }
+
+  if (!user && sessionError) return <SessionRecovery />;
 
   if (!user) {
     return <Navigate to="/login" replace />;

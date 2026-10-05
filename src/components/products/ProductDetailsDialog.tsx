@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router';
 import { getProduct, getProductSales } from '../../api/products';
 import {
@@ -15,6 +15,8 @@ import {
   Barcode,
 } from 'lucide-react';
 import { formatMoney, formatDate, formatDateTime } from '../../utils/formatters';
+import Pagination from '../common/Pagination';
+import ErrorState from '../common/ErrorState';
 import ImageSwiper from '../common/ImageSwiper';
 import { getProductGallery } from '../../utils/productGallery';
 import type { Product, ProductSale, PaginatedResponse } from '../../types';
@@ -46,56 +48,52 @@ export const ProductDetailsDialog = ({
   const [loading, setLoading] = useState(true);
   const [loadingSales, setLoadingSales] = useState(false);
   const [activeTab, setActiveTab] = useState<'details' | 'sales'>('details');
+  const [salesPage, setSalesPage] = useState(1);
+  const [salesCount, setSalesCount] = useState(0);
+  const [hasNext, setHasNext] = useState(false);
+  const [productError, setProductError] = useState<unknown>(null);
+  const [salesError, setSalesError] = useState<unknown>(null);
+  const productSequence = useRef(0);
+  const salesSequence = useRef(0);
 
-  useEffect(() => {
-    if (isOpen && productId) {
-      loadProductData();
-    } else {
-      setProduct(null);
-      setSales([]);
-      setActiveTab('details');
-    }
-  }, [isOpen, productId]);
-
-  const loadProductData = async () => {
-    if (!productId) return;
-    setLoading(true);
+  const loadProductData = useCallback(async () => {
+    if (!productId || !isOpen) return;
+    const sequence = ++productSequence.current;
+    setLoading(true); setProductError(null);
     try {
       const data = await getProduct(productId);
-      setProduct(data);
-      onProductUpdated?.(data);
+      if (sequence === productSequence.current) setProduct(data);
     } catch (err) {
-      console.error('Failed to load product details:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+      if (sequence === productSequence.current) setProductError(err);
+    } finally { if (sequence === productSequence.current) setLoading(false); }
+  }, [productId, isOpen]);
 
-  const loadSalesHistory = async () => {
-    if (!productId) return;
-    setLoadingSales(true);
+  const loadSalesHistory = useCallback(async () => {
+    if (!productId || !isOpen) return;
+    const sequence = ++salesSequence.current;
+    setLoadingSales(true); setSalesError(null);
     try {
-      const res = await getProductSales(productId);
-      if (Array.isArray(res)) {
-        setSales(res);
-      } else if (res && Array.isArray((res as PaginatedResponse<ProductSale>).results)) {
-        setSales((res as PaginatedResponse<ProductSale>).results);
-      } else {
-        setSales([]);
-      }
-    } catch (err) {
-      console.error('Failed to load sales history:', err);
-    } finally {
-      setLoadingSales(false);
-    }
-  };
+      const res = await getProductSales(productId, { page: salesPage });
+      if (sequence !== salesSequence.current) return;
+      setSales(Array.isArray(res) ? res : res.results);
+      setSalesCount(Array.isArray(res) ? res.length : res.count);
+      setHasNext(!Array.isArray(res) && !!res.next);
+    } catch (err) { if (sequence === salesSequence.current) setSalesError(err); }
+    finally { if (sequence === salesSequence.current) setLoadingSales(false); }
+  }, [productId, isOpen, salesPage]);
 
-  const handleTabChange = (tab: 'details' | 'sales') => {
-    setActiveTab(tab);
-    if (tab === 'sales' && sales.length === 0) {
-      loadSalesHistory();
-    }
-  };
+  useEffect(() => {
+    setProduct(null); setSales([]); setSalesCount(0); setSalesPage(1); setActiveTab('details');
+    void loadProductData();
+    return () => { ++productSequence.current; ++salesSequence.current; };
+  }, [loadProductData]);
+
+  useEffect(() => {
+    if (activeTab === 'sales') void loadSalesHistory();
+    return () => { ++salesSequence.current; };
+  }, [activeTab, loadSalesHistory]);
+
+  const handleTabChange = (tab: 'details' | 'sales') => setActiveTab(tab);
 
   if (!isOpen) return null;
 
@@ -138,7 +136,7 @@ export const ProductDetailsDialog = ({
             }`}
           >
             <History className="w-3.5 h-3.5" />
-            <span>История продаж ({sales.length})</span>
+            <span>История продаж ({salesCount})</span>
           </button>
         </div>
 
@@ -150,7 +148,7 @@ export const ProductDetailsDialog = ({
               <span>Загрузка данных товара...</span>
             </div>
           ) : !product ? (
-            <div className="py-8 text-center text-[#dc2626]">Не удалось загрузить данные товара.</div>
+            <ErrorState error={productError} onRetry={() => void loadProductData()} />
           ) : activeTab === 'details' ? (
             <div className="space-y-4">
               {/* Top Summary Card */}
@@ -279,6 +277,8 @@ export const ProductDetailsDialog = ({
                   <Loader2 className="w-5 h-5 animate-spin text-[#107c41]" />
                   <span>Загрузка истории продаж...</span>
                 </div>
+              ) : salesError ? (
+                <ErrorState error={salesError} onRetry={() => void loadSalesHistory()} />
               ) : sales.length === 0 ? (
                 <div className="py-8 text-center bg-[#f8fafc] border border-dashed border-[#cbd5e1] rounded text-[#64748b]">
                   <p>По этому товару ещё не было продаж.</p>
@@ -307,14 +307,15 @@ export const ProductDetailsDialog = ({
                             {s.returned_quantity > 0 ? `${s.returned_quantity} шт.` : '—'}
                           </td>
                           <td className="excel-cell text-right">{formatMoney(s.price_per_item)}</td>
-                          <td className="excel-cell text-right font-medium">{formatMoney(s.total_amount)}</td>
+                          <td className="excel-cell text-right font-medium">{formatMoney(s.net_total_amount ?? s.total_amount)}</td>
                           <td className="excel-cell text-right text-emerald-700 font-medium">
-                            {formatMoney(s.profit)}
+                            {formatMoney(s.net_profit ?? s.profit)}
                           </td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
+                  <Pagination currentPage={salesPage} totalCount={salesCount} pageSize={20} hasNext={hasNext} hasPrevious={salesPage > 1} onPageChange={setSalesPage} />
                 </div>
               )}
             </div>
@@ -331,7 +332,7 @@ export const ProductDetailsDialog = ({
                   onClose();
                   onOpenSell?.(product);
                 }}
-                disabled={product.remaining_quantity <= 0}
+                disabled={product.is_archived || product.remaining_quantity <= 0}
                 className="inline-flex items-center gap-1 px-3 py-1.5 rounded bg-[#107c41] hover:bg-[#0d6936] text-white font-medium transition-colors disabled:opacity-40"
               >
                 <ShoppingCart className="w-3.5 h-3.5" />
@@ -344,6 +345,7 @@ export const ProductDetailsDialog = ({
                   onClose();
                   onOpenAddStock?.(product);
                 }}
+                disabled={product.is_archived}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-[#cbd5e1] bg-white hover:bg-[#f1f5f9] text-[#334155] font-medium transition-colors"
               >
                 <PlusCircle className="w-3.5 h-3.5 text-[#107c41]" />
@@ -371,6 +373,7 @@ export const ProductDetailsDialog = ({
                   onClose();
                   navigate(`/products/${product.id}/edit`);
                 }}
+                disabled={product.is_archived}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-[#cbd5e1] bg-white hover:bg-[#f1f5f9] text-[#0369a1] font-medium transition-colors"
               >
                 <Edit className="w-3.5 h-3.5" />
@@ -383,10 +386,11 @@ export const ProductDetailsDialog = ({
                   onClose();
                   onOpenDelete?.(product);
                 }}
+                disabled={product.is_archived}
                 className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded border border-[#fca5a5] bg-white hover:bg-[#fef2f2] text-[#dc2626] font-medium transition-colors"
               >
                 <Trash2 className="w-3.5 h-3.5" />
-                <span>Удалить</span>
+                <span>В архив</span>
               </button>
 
               <button

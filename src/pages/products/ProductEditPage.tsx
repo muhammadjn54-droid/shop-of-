@@ -1,4 +1,4 @@
-import { useState, useEffect, type ChangeEvent, type FormEvent } from 'react';
+import { useState, useEffect, type FormEvent } from 'react';
 import { useNavigate, useParams, Link } from 'react-router';
 import { getProduct, updateProduct } from '../../api/products';
 import {
@@ -17,8 +17,9 @@ import {
   Barcode,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useImageSelection } from '../../utils/useImageSelection';
 import { formatMoney } from '../../utils/formatters';
-import { formatErrorMessage } from '../../components/common/ErrorState';
+import ErrorState, { formatErrorMessage } from '../../components/common/ErrorState';
 import { getProductGallery } from '../../utils/productGallery';
 
 interface CalculatedData {
@@ -38,7 +39,7 @@ export const ProductEditPage = () => {
   const [loadingProduct, setLoadingProduct] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isVercelMediaError, setIsVercelMediaError] = useState(false);
+  const [loadAttempt, setLoadAttempt] = useState(0);
 
   // Form states
   const [name, setName] = useState('');
@@ -50,19 +51,25 @@ export const ProductEditPage = () => {
 
   // Multiple Image states
   const [currentImages, setCurrentImages] = useState<string[]>([]);
-  const [newImageFiles, setNewImageFiles] = useState<File[]>([]);
-  const [newImagePreviews, setNewImagePreviews] = useState<string[]>([]);
+  const { files: newImageFiles, previews: newImagePreviews, onChange: handleImagesChange, remove: handleRemoveNewImageIndex, clear: handleClearNewImages } = useImageSelection(setError);
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState<string>();
 
   // Read-only calculated fields from backend
   const [calculatedData, setCalculatedData] = useState<CalculatedData | null>(null);
 
   useEffect(() => {
+    let active = true;
     const fetchProduct = async () => {
       if (!id) return;
       setLoadingProduct(true);
       setError(null);
+      setCalculatedData(null);
+      setExpectedUpdatedAt(undefined);
       try {
         const data = await getProduct(id);
+        if (!active) return;
+        if (data.is_archived) { navigate('/products', { replace: true }); return; }
+        setExpectedUpdatedAt(data.updated_at);
         setName(data.name || '');
         setBarcode(data.barcode || '');
         setArrivalDate(data.arrival_date || '');
@@ -84,51 +91,22 @@ export const ProductEditPage = () => {
           profit_per_item: data.profit_per_item,
         });
       } catch (err) {
+        if (!active) return;
         const msg = formatErrorMessage(err);
         setError(msg);
         toast.error('Не удалось загрузить данные товара');
       } finally {
-        setLoadingProduct(false);
+        if (active) setLoadingProduct(false);
       }
     };
 
     fetchProduct();
-  }, [id]);
-
-  const handleImagesChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    setNewImageFiles((prev) => [...prev, ...files]);
-
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setNewImagePreviews((prev) => [...prev, event.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    setIsVercelMediaError(false);
-  };
-
-  const handleRemoveNewImageIndex = (index: number) => {
-    setNewImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setNewImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleClearNewImages = () => {
-    setNewImageFiles([]);
-    setNewImagePreviews([]);
-    setIsVercelMediaError(false);
-  };
+    return () => { active = false; };
+  }, [id, loadAttempt, navigate]);
 
   const executeUpdate = async (filesToUpload: File[]) => {
-    if (!id) return;
+    if (!id || !calculatedData || loadingProduct || saving) return;
     setError(null);
-    setIsVercelMediaError(false);
 
     if (!name.trim()) {
       setError('Укажите название товара');
@@ -138,7 +116,7 @@ export const ProductEditPage = () => {
       setError('Укажите дату поступления');
       return;
     }
-    if (quantityReceived === '' || parseInt(quantityReceived, 10) < 0) {
+    if (quantityReceived === '' || !Number.isInteger(Number(quantityReceived)) || Number(quantityReceived) < 0) {
       setError('Укажите корректное количество');
       return;
     }
@@ -156,6 +134,7 @@ export const ProductEditPage = () => {
     try {
       if (filesToUpload && filesToUpload.length > 0) {
         const formData = new FormData();
+        if (expectedUpdatedAt) formData.append('expected_updated_at', expectedUpdatedAt);
         formData.append('name', name.trim());
         formData.append('barcode', barcode.trim());
         formData.append('arrival_date', arrivalDate);
@@ -167,6 +146,7 @@ export const ProductEditPage = () => {
         await updateProduct(id, formData);
       } else {
         await updateProduct(id, {
+          expected_updated_at: expectedUpdatedAt,
           name: name.trim(),
           barcode: barcode.trim(),
           arrival_date: arrivalDate,
@@ -179,28 +159,7 @@ export const ProductEditPage = () => {
       toast.success('Товар успешно изменён');
       navigate('/products');
     } catch (err: unknown) {
-      const axiosErr = err as {
-        response?: {
-          status?: number;
-          data?: unknown;
-        };
-      };
-      const status = axiosErr.response?.status;
-      const data = axiosErr.response?.data;
-
-      if (
-        status === 500 ||
-        (typeof data === 'string' && (data.includes('500') || data.includes('<!doctype') || data.includes('<!DOCTYPE')))
-      ) {
-        setIsVercelMediaError(true);
-        setError(
-          'Сервер Vercel не смог сохранить файл изображения (ошибка 500). Нажмите кнопку ниже для сохранения без фото.'
-        );
-      } else {
-        const msg = formatErrorMessage(err);
-        setError(msg);
-        toast.error(msg);
-      }
+      setError(formatErrorMessage(err));
     } finally {
       setSaving(false);
     }
@@ -211,10 +170,6 @@ export const ProductEditPage = () => {
     executeUpdate(newImageFiles);
   };
 
-  const handleSaveWithoutImage = () => {
-    handleClearNewImages();
-    executeUpdate([]);
-  };
 
   if (loadingProduct) {
     return (
@@ -223,6 +178,10 @@ export const ProductEditPage = () => {
         <span className="text-xs text-[#64748b]">Загрузка параметров товара #{id}...</span>
       </div>
     );
+  }
+
+  if (!calculatedData) {
+    return <ErrorState error={error || 'Товар не найден'} onRetry={() => setLoadAttempt(value => value + 1)} />;
   }
 
   return (
@@ -262,19 +221,6 @@ export const ProductEditPage = () => {
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
                 <span className="flex-1">{error}</span>
               </div>
-              {isVercelMediaError && (
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveWithoutImage}
-                    disabled={saving}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6936] text-white font-medium rounded text-xs transition-colors shadow-2xs"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Сохранить без нового фото</span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -432,7 +378,7 @@ export const ProductEditPage = () => {
                   <label className="border-2 border-dashed border-[#cbd5e1] hover:border-[#107c41] rounded aspect-square flex flex-col items-center justify-center cursor-pointer bg-white hover:bg-[#f1f5f9] transition-all text-center">
                     <Plus className="w-5 h-5 text-[#64748b] mb-0.5" />
                     <span className="text-[10px] text-[#475569] font-medium">+ Ещё фото</span>
-                    <input type="file" multiple accept="image/*" onChange={handleImagesChange} className="hidden" />
+                    <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={handleImagesChange} className="hidden" />
                   </label>
                 </div>
                 <div className="flex justify-end pt-1">
@@ -448,8 +394,8 @@ export const ProductEditPage = () => {
             ) : (
               <label className="border-2 border-dashed border-[#cbd5e1] hover:border-[#107c41] rounded-md p-4 flex flex-col items-center justify-center cursor-pointer bg-[#f8fafc] hover:bg-white transition-all text-center group">
                 <Upload className="w-5 h-5 text-[#94a3b8] group-hover:text-[#107c41] mb-1" />
-                <span className="text-xs font-medium text-[#334155]">Добавить или заменить фотографии (multiple)</span>
-                <input type="file" multiple accept="image/*" onChange={handleImagesChange} className="hidden" />
+                <span className="text-xs font-medium text-[#334155]">Добавить фотографии</span>
+                <input type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={handleImagesChange} className="hidden" />
               </label>
             )}
           </div>

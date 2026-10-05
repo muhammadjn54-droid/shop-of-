@@ -4,12 +4,13 @@ export const formatErrorMessage = (error: unknown): string => {
   if (!error) return 'Произошла неизвестная ошибка';
   if (typeof error === 'string') {
     if (error.includes('Server Error (500)') || error.includes('<!doctype') || error.includes('<!DOCTYPE')) {
-      return 'Ошибка сервера (500): на сервере Vercel не настроено сохранение файлов на диск. Пожалуйста, удалите фото и сохраните товар.';
+      return 'Сервер временно недоступен. Повторите попытку позже.';
     }
     return error;
   }
 
   const errObj = error as {
+    code?: string;
     message?: string;
     response?: {
       status?: number;
@@ -20,15 +21,17 @@ export const formatErrorMessage = (error: unknown): string => {
   const status = errObj.response?.status;
   const data = errObj.response?.data;
 
-  // Catch 500 HTML error pages from Vercel
+  // Server failures do not identify their cause (storage, database or otherwise).
   if (
-    status === 500 ||
+    (status !== undefined && status >= 500) ||
     (typeof data === 'string' && (data.includes('500') || data.includes('<!doctype') || data.includes('<!DOCTYPE')))
   ) {
-    return 'Ошибка сервера (500): на сервере Vercel не настроено сохранение файлов на диск. Пожалуйста, нажмите ✕ на фото и сохраните товар без фото.';
+    return 'Сервер временно недоступен. Повторите попытку позже.';
   }
 
   if (!data) {
+    if (errObj.code === 'ERR_NETWORK') return 'Нет соединения с сервером. Проверьте интернет и повторите попытку.';
+    if (errObj.code === 'ECONNABORTED') return 'Сервер не ответил вовремя. Повторите попытку.';
     return errObj.message || 'Ошибка соединения с сервером';
   }
 
@@ -44,7 +47,8 @@ export const formatErrorMessage = (error: unknown): string => {
 
     const messages: string[] = [];
     Object.entries(dataRecord).forEach(([key, val]) => {
-      const fieldName = key === 'non_field_errors' ? '' : `${key}: `;
+      const labels: Record<string, string> = { username: 'Логин', email: 'Email', password: 'Пароль', password2: 'Подтверждение пароля', first_name: 'Имя', last_name: 'Фамилия', images: 'Фотографии', image: 'Фотография', expected_updated_at: 'Товар' };
+      const fieldName = key === 'non_field_errors' ? '' : `${labels[key] || key}: `;
       if (Array.isArray(val)) {
         messages.push(`${fieldName}${val.join(', ')}`);
       } else if (typeof val === 'string') {

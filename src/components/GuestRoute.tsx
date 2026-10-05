@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Navigate } from 'react-router';
 import { useAuth } from '../context/AuthContext';
 import { Loader2 } from 'lucide-react';
+import SessionRecovery from './SessionRecovery';
 
 /**
  * GuestRoute (только для неавторизованных гостей).
@@ -10,7 +11,7 @@ import { Loader2 } from 'lucide-react';
  * Его автоматически перенаправляет на главную страницу (/).
  */
 export const GuestRoute = ({ children }: { children: ReactNode }) => {
-  const { isAuthenticated, loading } = useAuth();
+  const { isAuthenticated, loading, sessionError } = useAuth();
 
   if (loading) {
     return (
@@ -22,6 +23,8 @@ export const GuestRoute = ({ children }: { children: ReactNode }) => {
       </div>
     );
   }
+
+  if (!isAuthenticated && sessionError) return <SessionRecovery />;
 
   if (isAuthenticated) {
     return <Navigate to="/" replace />;

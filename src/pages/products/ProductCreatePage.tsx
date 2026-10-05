@@ -1,4 +1,4 @@
-import { useState, type ChangeEvent, type FormEvent } from 'react';
+import { useState, type FormEvent } from 'react';
 import { useNavigate, Link } from 'react-router';
 import { createProduct } from '../../api/products';
 import {
@@ -16,12 +16,13 @@ import {
   Barcode,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useImageSelection } from '../../utils/useImageSelection';
 import { formatErrorMessage } from '../../components/common/ErrorState';
 
 export const ProductCreatePage = () => {
   const navigate = useNavigate();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().split('T')[0];
 
   const [name, setName] = useState('');
   const [barcode, setBarcode] = useState('');
@@ -31,49 +32,14 @@ export const ProductCreatePage = () => {
   const [sellingPrice, setSellingPrice] = useState('');
 
   // Multiple images state
-  const [imageFiles, setImageFiles] = useState<File[]>([]);
-  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isVercelMediaError, setIsVercelMediaError] = useState(false);
+  const { files: imageFiles, previews: imagePreviews, onChange: handleImagesChange, remove: handleRemoveImageIndex, clear: handleClearAllImages } = useImageSelection(setError);
 
   // Handle multiple images selection
-  const handleImagesChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const files = Array.from(e.target.files || []);
-    if (files.length === 0) return;
-
-    const newFiles = [...imageFiles, ...files];
-    setImageFiles(newFiles);
-
-    // Generate previews
-    files.forEach((file) => {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        if (event.target?.result) {
-          setImagePreviews((prev) => [...prev, event.target!.result as string]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-
-    setIsVercelMediaError(false);
-  };
-
-  const handleRemoveImageIndex = (index: number) => {
-    setImageFiles((prev) => prev.filter((_, i) => i !== index));
-    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
-  };
-
-  const handleClearAllImages = () => {
-    setImageFiles([]);
-    setImagePreviews([]);
-    setIsVercelMediaError(false);
-  };
-
   const executeSave = async (filesToSend: File[]) => {
     setError(null);
-    setIsVercelMediaError(false);
 
     if (!name.trim()) {
       setError('Укажите название товара');
@@ -126,28 +92,7 @@ export const ProductCreatePage = () => {
       toast.success('Товар успешно добавлен!');
       navigate('/products');
     } catch (err: unknown) {
-      const axiosErr = err as {
-        response?: {
-          status?: number;
-          data?: unknown;
-        };
-      };
-      const status = axiosErr.response?.status;
-      const data = axiosErr.response?.data;
-
-      // Handle Vercel 500 read-only filesystem crash on image upload
-      if (
-        status === 500 ||
-        (typeof data === 'string' && (data.includes('500') || data.includes('<!doctype') || data.includes('<!DOCTYPE')))
-      ) {
-        setIsVercelMediaError(true);
-        setError(
-          'Сервер Vercel не смог сохранить файл изображения на диск (ошибка 500). Нажмите кнопку ниже, чтобы сохранить товар без фото.'
-        );
-      } else {
-        const msg = formatErrorMessage(err);
-        setError(msg);
-      }
+      setError(formatErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -158,10 +103,6 @@ export const ProductCreatePage = () => {
     executeSave(imageFiles);
   };
 
-  const handleSaveWithoutImage = () => {
-    handleClearAllImages();
-    executeSave([]);
-  };
 
   return (
     <div className="max-w-3xl mx-auto w-full space-y-4 font-['Inter',sans-serif]">
@@ -198,19 +139,6 @@ export const ProductCreatePage = () => {
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-red-600" />
                 <span className="flex-1">{error}</span>
               </div>
-              {isVercelMediaError && (
-                <div className="pt-1">
-                  <button
-                    type="button"
-                    onClick={handleSaveWithoutImage}
-                    disabled={loading}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#107c41] hover:bg-[#0d6936] text-white font-medium rounded text-xs transition-colors shadow-2xs"
-                  >
-                    <Check className="w-3.5 h-3.5" />
-                    <span>Сохранить товар без фото</span>
-                  </button>
-                </div>
-              )}
             </div>
           )}
 
@@ -379,7 +307,7 @@ export const ProductCreatePage = () => {
                     <input
                       type="file"
                       multiple
-                      accept="image/*"
+                      accept="image/jpeg,image/png,image/webp"
                       onChange={handleImagesChange}
                       className="hidden"
                     />
@@ -408,7 +336,7 @@ export const ProductCreatePage = () => {
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/jpeg,image/png,image/webp"
                   onChange={handleImagesChange}
                   className="hidden"
                 />
