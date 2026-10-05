@@ -1,129 +1,80 @@
 import axios, { type InternalAxiosRequestConfig } from 'axios';
+import { clearSession, getSession, updateSessionTokens } from './session';
 
-// Base URL of the backend, without a trailing slash and WITHOUT /api
-// (every call below appends /api/... itself).
-// Set VITE_API_URL in .env to point the frontend at another deployment,
-// for example the Render service instead of Vercel.
-const API_BASE_URL: string = (
-  import.meta.env.VITE_API_URL || 'https://shop-becend.vercel.app'
-).replace(/\/+$/, '');
+const API_BASE_URL = (import.meta.env.VITE_API_URL || 'https://shop-becend.vercel.app').replace(/\/+$/, '');
+export const authApi = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
+const api = axios.create({ baseURL: API_BASE_URL, timeout: 20000 });
 
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+interface SessionRequest extends InternalAxiosRequestConfig {
+  _retry?: boolean;
+  _sessionId?: string;
+}
+
+const sessionChanged = () => new axios.CanceledError('Сессия изменилась. Повторите действие.');
+let refreshing: { id: string; promise: Promise<string> } | null = null;
+
+async function refreshAccess(sessionId: string): Promise<string> {
+  const session = getSession();
+  if (!session || session.id !== sessionId) throw sessionChanged();
+  if (!session.refresh) {
+    clearSession(sessionId);
+    throw new Error('Сессия истекла. Войдите снова.');
+  }
+  try {
+    const { data } = await authApi.post<{ access: string; refresh?: string }>(
+      '/api/auth/token/refresh/', { refresh: session.refresh },
+    );
+    if (!updateSessionTokens(sessionId, data)) throw sessionChanged();
+    return data.access;
+  } catch (error) {
+    const current = getSession();
+    if (current?.id !== sessionId) throw sessionChanged();
+    if (current.refresh !== session.refresh && current.access) return current.access;
+    if (axios.isAxiosError(error) && [400, 401].includes(error.response?.status ?? 0)) {
+      clearSession(sessionId);
+    }
+    throw error;
+  }
+}
+
+api.interceptors.request.use((config: SessionRequest) => {
+  const session = getSession();
+  if (config._sessionId && config._sessionId !== session?.id) throw sessionChanged();
+  config._sessionId = session?.id;
+  if (session?.access) config.headers.Authorization = 'Bearer ' + session.access;
+  else config.headers.delete('Authorization');
+  return config;
 });
 
-// Shared refresh promise to prevent multiple simultaneous refresh requests
-let refreshPromise: Promise<string> | null = null;
-
-// Keep other tabs in sync: when one tab stores new tokens, the others must
-// adopt them instead of refreshing with the (still valid, but older) token.
-if (typeof window !== 'undefined') {
-  window.addEventListener('storage', (e: StorageEvent) => {
-    if (e.key === 'refresh' && e.newValue === null) {
-      // Another tab logged out for real.
-      localStorage.removeItem('access');
-    }
-  });
-}
-
-// Endpoints that must never trigger a refresh/retry loop.
-const AUTH_ENDPOINTS: string[] = [
-  '/api/auth/login/',
-  '/api/auth/token/refresh/',
-  '/api/auth/logout/',
-];
-
-interface CustomInternalAxiosRequestConfig extends InternalAxiosRequestConfig {
-  _retry?: boolean;
-}
-
-// Request interceptor: attach access token
-api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
-    const access = localStorage.getItem('access');
-    if (access && !config.headers.Authorization) {
-      config.headers.Authorization = `Bearer ${access}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
-
-const doRefresh = (): Promise<string> => {
-  const refresh = localStorage.getItem('refresh');
-  if (!refresh) return Promise.reject(new Error('no-refresh-token'));
-
-  return axios
-    .post<{ access: string; refresh?: string }>(`${API_BASE_URL}/api/auth/token/refresh/`, { refresh })
-    .then((res) => {
-      localStorage.setItem('access', res.data.access);
-      if (res.data.refresh) {
-        localStorage.setItem('refresh', res.data.refresh);
-      }
-      return res.data.access;
-    })
-    .catch((err) => {
-      // Only a real rejection of the token itself (400/401) means the session
-      // is really over. A 5xx or a network error must NOT destroy the session,
-      // otherwise a transient server hiccup logs the user out.
-      const status = err.response?.status;
-      if (status === 400 || status === 401) {
-        localStorage.removeItem('access');
-        localStorage.removeItem('refresh');
-      }
-      throw err;
-    });
-};
-
-// Response interceptor: handle 401 and refresh token
 api.interceptors.response.use(
-  (response) => response,
-  async (error) => {
-    const originalRequest = error.config as CustomInternalAxiosRequestConfig | undefined;
-
-    // Network error / timeout: no config, nothing to retry.
-    if (!originalRequest) {
-      return Promise.reject(error);
+  (response) => {
+    const request = response.config as SessionRequest;
+    if (request._sessionId && getSession()?.id !== request._sessionId) throw sessionChanged();
+    return response;
+  },
+  async (error: unknown) => {
+    if (!axios.isAxiosError(error)) throw error;
+    const request = error.config as SessionRequest | undefined;
+    if (!request || error.response?.status !== 401) throw error;
+    const session = getSession();
+    if (!session || session.id !== request._sessionId) throw sessionChanged();
+    if (request._retry) {
+      if (request.headers.Authorization === 'Bearer ' + session.access) clearSession(session.id);
+      throw error;
     }
-
-    // Skip retry for auth endpoints to avoid infinite loops
-    if (AUTH_ENDPOINTS.some((url) => originalRequest.url?.includes(url))) {
-      return Promise.reject(error);
+    request._retry = true;
+    // A delayed 401 may belong to a token another request already refreshed.
+    if (session.access && request.headers.Authorization !== 'Bearer ' + session.access) return api(request);
+    if (!refreshing || refreshing.id !== session.id) {
+      const pending = { id: session.id, promise: refreshAccess(session.id) };
+      refreshing = pending;
+      void pending.promise.finally(() => {
+        if (refreshing === pending) refreshing = null;
+      }).catch(() => {});
     }
-
-    // Only handle real 401 responses (not network errors or 5xx)
-    if (error.response?.status !== 401 || originalRequest._retry) {
-      return Promise.reject(error);
-    }
-
-    originalRequest._retry = true;
-
-    // If a refresh is already in progress, wait for it
-    if (refreshPromise) {
-      try {
-        const newAccess = await refreshPromise;
-        originalRequest.headers.Authorization = `Bearer ${newAccess}`;
-        return api(originalRequest);
-      } catch (refreshErr) {
-        return Promise.reject(refreshErr);
-      }
-    }
-
-    refreshPromise = doRefresh().finally(() => {
-      refreshPromise = null;
-    });
-
-    try {
-      const newAccess = await refreshPromise;
-      originalRequest.headers.Authorization = `Bearer ${newAccess}`;
-      return api(originalRequest);
-    } catch (refreshError) {
-      return Promise.reject(refreshError);
-    }
-  }
+    await refreshing.promise;
+    return api(request);
+  },
 );
 
 export default api;

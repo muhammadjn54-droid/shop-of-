@@ -163,7 +163,7 @@ export const DashboardPage = () => {
           <div className="text-xs sm:text-sm font-extrabold text-[#15803d] tabular-nums truncate">
             {formatMoney(total_profit)}
           </div>
-          <div className="text-[10px] text-[#166534] mt-0.5">Чистый доход</div>
+          <div className="text-[10px] text-[#166534] mt-0.5">Без убыточных сделок</div>
         </div>
 
         {/* Loss */}
@@ -219,12 +219,12 @@ export const DashboardPage = () => {
                       <td className="excel-cell font-medium text-[#1e293b] max-w-[140px] truncate">
                         {s.product_name}
                       </td>
-                      <td className="excel-cell text-right tabular-nums">{s.quantity} шт.</td>
+                      <td className="excel-cell text-right tabular-nums">{s.net_quantity ?? s.quantity} шт.</td>
                       <td className="excel-cell text-right tabular-nums text-[#0369a1]">
-                        {formatMoney(s.total_amount)}
+                        {formatMoney(s.net_total_amount ?? s.total_amount)}
                       </td>
                       <td className="excel-cell text-right tabular-nums font-semibold text-[#15803d]">
-                        {formatMoney(s.profit)}
+                        {formatMoney(s.net_profit ?? s.profit)}
                       </td>
                       <td className="excel-cell text-[11px] text-[#64748b]">
                         {formatDateTime(s.sold_at)}

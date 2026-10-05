@@ -1,5 +1,5 @@
 import { Suspense, lazy } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router';
+import { BrowserRouter, Routes, Route } from 'react-router';
 import { Toaster } from 'react-hot-toast';
 
 import { AuthProvider } from './context/AuthContext';
@@ -10,6 +10,10 @@ import LoadingState from './components/common/LoadingState';
 
 // Lazy loading all pages for optimal performance and code splitting
 const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ResetPasswordPage = lazy(() => import('./pages/auth/ResetPasswordPage'));
+const AccountPage = lazy(() => import('./pages/AccountPage'));
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const ProductsPage = lazy(() => import('./pages/products/ProductsPage'));
 const ProductCreatePage = lazy(() => import('./pages/products/ProductCreatePage'));
@@ -61,7 +65,9 @@ export function App() {
                 </GuestRoute>
               }
             />
-            <Route path="/register" element={<Navigate to="/login" replace />} />
+            <Route path="/register" element={<GuestRoute><RegisterPage /></GuestRoute>} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
 
             {/* Protected Application Routes */}
             <Route
@@ -77,6 +83,7 @@ export function App() {
               <Route path="/products/:id/edit" element={<ProductEditPage />} />
               <Route path="/sales" element={<SalesPage />} />
               <Route path="/statistics" element={<StatisticsPage />} />
+              <Route path="/account" element={<AccountPage />} />
             </Route>
 
             {/* 404 Not Found Page */}

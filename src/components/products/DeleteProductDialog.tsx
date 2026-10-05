@@ -23,7 +23,7 @@ export const DeleteProductDialog = ({ product, isOpen, onClose, onSuccess }: Del
     setError(null);
     try {
       await deleteProduct(product.id);
-      toast.success('Товар удалён');
+      toast.success('Товар перемещён в архив');
       onSuccess?.();
       onClose();
     } catch (err) {
@@ -42,7 +42,7 @@ export const DeleteProductDialog = ({ product, isOpen, onClose, onSuccess }: Del
         <div className="bg-[#b91c1c] text-white px-4 py-2.5 flex items-center justify-between">
           <div className="flex items-center gap-2 text-xs font-semibold">
             <AlertTriangle className="w-4 h-4" />
-            <span>Удалить товар?</span>
+            <span>Переместить товар в архив?</span>
           </div>
           <button
             onClick={onClose}
@@ -56,10 +56,10 @@ export const DeleteProductDialog = ({ product, isOpen, onClose, onSuccess }: Del
         {/* Content */}
         <div className="p-5 text-xs text-[#334155]">
           <p className="text-sm text-[#1e293b] font-medium mb-2">
-            Вы действительно хотите удалить «<strong className="text-[#0f172a]">{product.name}</strong>»?
+            Переместить в архив «<strong className="text-[#0f172a]">{product.name}</strong>»?
           </p>
           <p className="text-[#64748b] mb-4">
-            Это действие нельзя отменить. Вся связанная информация о товаре будет безвозвратно удалена.
+            Товар исчезнет из активного склада. История продаж, возвратов и финансовые итоги сохранятся.
           </p>
 
           {error && (
@@ -87,12 +87,12 @@ export const DeleteProductDialog = ({ product, isOpen, onClose, onSuccess }: Del
               {loading ? (
                 <>
                   <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                  <span>Удаление...</span>
+                  <span>Архивация...</span>
                 </>
               ) : (
                 <>
                   <Trash2 className="w-3.5 h-3.5" />
-                  <span>Удалить</span>
+                  <span>В архив</span>
                 </>
               )}
             </button>

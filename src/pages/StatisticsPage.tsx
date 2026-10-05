@@ -55,6 +55,7 @@ export const StatisticsPage = () => {
     total_items_received = 0,
     total_items_sold = 0,
     total_items_remaining = 0,
+    total_items_archived = 0,
     total_revenue = 0,
     total_cost_of_sold_goods = 0,
     total_profit = 0,
@@ -68,8 +69,10 @@ export const StatisticsPage = () => {
 
   const revenueNum = parseFloat(String(total_revenue)) || 0;
   const profitNum = parseFloat(String(total_profit)) || 0;
+  const netProfit = profitNum - (parseFloat(String(total_loss)) || 0);
   const costNum = parseFloat(String(total_cost_of_sold_goods)) || 0;
-  const profitMargin = revenueNum > 0 ? Math.round((profitNum / revenueNum) * 100) : 0;
+  const profitMargin = revenueNum > 0 ? Math.round((netProfit / revenueNum) * 100) : 0;
+  const costShare = revenueNum > 0 ? Math.round((costNum / revenueNum) * 100) : 0;
 
   return (
     <div className="flex-1 flex flex-col space-y-4 font-['Inter',sans-serif]">
@@ -126,7 +129,7 @@ export const StatisticsPage = () => {
               <div className="flex items-center justify-between p-2.5 bg-[#f0fdf4]">
                 <span className="text-[#166534] font-semibold">Итоговая чистая прибыль:</span>
                 <span className="font-extrabold text-[#15803d] tabular-nums text-sm">
-                  {formatMoney(total_profit)}
+                  {formatMoney(netProfit)}
                 </span>
               </div>
 
@@ -149,17 +152,17 @@ export const StatisticsPage = () => {
             <div className="pt-2">
               <div className="flex justify-between text-[11px] text-[#64748b] mb-1">
                 <span>Структура выручки:</span>
-                <span>Себестоимость ({100 - profitMargin}%) • Прибыль ({profitMargin}%)</span>
+                <span>Себестоимость ({costShare}%) • Прибыль ({profitMargin}%)</span>
               </div>
               <div className="h-3 w-full bg-[#cbd5e1] rounded-full overflow-hidden flex">
                 <div
                   className="bg-[#64748b] transition-all duration-500"
-                  style={{ width: `${Math.max(0, 100 - profitMargin)}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, costShare))}%` }}
                   title="Себестоимость"
                 />
                 <div
                   className="bg-[#107c41] transition-all duration-500"
-                  style={{ width: `${Math.max(0, profitMargin)}%` }}
+                  style={{ width: `${Math.min(100, Math.max(0, profitMargin))}%` }}
                   title="Чистая прибыль"
                 />
               </div>
@@ -205,6 +208,7 @@ export const StatisticsPage = () => {
               </div>
             </div>
 
+            {total_items_archived > 0 && <p className="text-[#64748b]">Остаток товаров в архиве: {formatNumber(total_items_archived)} шт.</p>}
             {/* Inventory Distribution Bar */}
             <div className="pt-2">
               <div className="flex justify-between text-[11px] text-[#64748b] mb-1">

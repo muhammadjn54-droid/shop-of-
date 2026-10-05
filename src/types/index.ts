@@ -1,7 +1,9 @@
 export interface User {
   id: number;
   username: string;
-  email?: string;
+  email?: string | null;
+  first_name?: string;
+  last_name?: string;
   date_joined?: string;
 }
 
@@ -19,6 +21,7 @@ export interface ProductImage {
 
 export interface Product {
   id: number;
+  is_archived?: boolean;
   name: string;
   barcode?: string;
   arrival_date: string;
@@ -48,12 +51,15 @@ export interface ProductSale {
   price_per_item: string | number;
   total_amount: string | number;
   profit: string | number;
+  net_total_amount?: string | number;
+  net_profit?: string | number;
 }
 
 export interface Sale {
   id: number;
   product?: number;
   product_name: string;
+  product_is_archived?: boolean;
   quantity: number;
   returned_quantity: number;
   net_quantity: number;
@@ -62,6 +68,9 @@ export interface Sale {
   total_amount: string | number;
   net_total_amount: string | number;
   cost_amount: string | number;
+  net_cost_amount?: string | number;
+  net_profit?: string | number;
+  net_loss?: string | number;
   profit: string | number;
   loss?: string | number;
   sold_at: string;
@@ -71,6 +80,9 @@ export interface RecentSale {
   id: number;
   product_name: string;
   quantity: number;
+  net_quantity?: number;
+  net_total_amount?: string | number;
+  net_profit?: string | number;
   total_amount: string | number;
   profit: string | number;
   sold_at: string;
@@ -102,6 +114,7 @@ export interface StatisticsData {
   total_items_received: number;
   total_items_sold: number;
   total_items_remaining: number;
+  total_items_archived?: number;
   total_revenue: string | number;
   total_cost_of_sold_goods: string | number;
   total_profit: string | number;

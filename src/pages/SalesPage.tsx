@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { getSales } from '../api/sales';
 import {
   ShoppingCart,
@@ -25,6 +25,7 @@ export const SalesPage = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [ordering, setOrdering] = useState('-sold_at');
 
+  const requestSequence = useRef(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<unknown>(null);
 
@@ -32,6 +33,7 @@ export const SalesPage = () => {
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
 
   const fetchSales = useCallback(async () => {
+    const sequence = ++requestSequence.current;
     setLoading(true);
     setError(null);
     try {
@@ -41,20 +43,24 @@ export const SalesPage = () => {
         ordering: ordering,
       });
 
+      if (sequence !== requestSequence.current) return;
       setSales(res.results || []);
       setTotalCount(res.count || (res.results ? res.results.length : 0));
       setHasNext(!!res.next);
       setHasPrevious(!!res.previous);
     } catch (err) {
+      if (sequence !== requestSequence.current) return;
+      if ((err as { response?: { status?: number } }).response?.status === 404 && currentPage > 1) { setCurrentPage(page => page - 1); return; }
       console.error('Error fetching sales:', err);
       setError(err);
     } finally {
-      setLoading(false);
+      if (sequence === requestSequence.current) setLoading(false);
     }
   }, [currentPage, searchTerm, ordering]);
 
   useEffect(() => {
-    fetchSales();
+    void fetchSales();
+    return () => { ++requestSequence.current; };
   }, [fetchSales]);
 
   const handleSort = (field: string) => {
@@ -186,7 +192,7 @@ export const SalesPage = () => {
 
               <tbody className="divide-y divide-[#e2e8f0]">
                 {sales.map((sale, index) => {
-                  const rowNumber = (currentPage - 1) * 10 + index + 1;
+                  const rowNumber = (currentPage - 1) * 20 + index + 1;
                   return (
                     <tr
                       key={sale.id}
@@ -220,10 +226,10 @@ export const SalesPage = () => {
                         {formatMoney(sale.net_total_amount)}
                       </td>
                       <td className="excel-cell text-right tabular-nums text-[#64748b]">
-                        {formatMoney(sale.cost_amount)}
+                        {formatMoney(sale.net_cost_amount ?? sale.cost_amount)}
                       </td>
                       <td className="excel-cell text-right tabular-nums font-bold text-[#15803d]">
-                        {formatMoney(sale.profit)}
+                        {formatMoney(sale.net_profit ?? sale.profit)}
                       </td>
                       <td className="excel-cell text-[#64748b] text-[11px]">
                         {formatDateTime(sale.sold_at)}
@@ -239,7 +245,7 @@ export const SalesPage = () => {
         <Pagination
           currentPage={currentPage}
           totalCount={totalCount}
-          pageSize={10}
+          pageSize={20}
           hasNext={hasNext}
           hasPrevious={hasPrevious}
           onPageChange={(page) => setCurrentPage(page)}
@@ -248,6 +254,7 @@ export const SalesPage = () => {
 
       {/* Sale Details Dialog */}
       <SaleDetailsDialog
+        onUpdated={() => void fetchSales()}
         sale={selectedSale}
         isOpen={isDetailsOpen}
         onClose={() => {
