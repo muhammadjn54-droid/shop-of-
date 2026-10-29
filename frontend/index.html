@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23107c41'><path d='M20 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z'/></svg>" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Excel Pro | Система учёта товаров и продаж</title>
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0F7A55" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Excel Pro" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Manrope:wght@600;700;800&display=swap" rel="stylesheet">
+      <script>try{var t=localStorage.getItem('shop_theme');if(t==='dark'||(!t&&matchMedia('(prefers-color-scheme: dark)').matches))document.documentElement.classList.add('dark')}catch(e){}</script>
+    <style>
+      .boot{min-height:100vh;display:flex;align-items:center;justify-content:center;background:#f3f5f1}
+      .dark .boot{background:#0a1410}
+      .boot-logo{width:56px;height:56px;border-radius:16px;background:#0f7a55;animation:bootpulse 1.2s ease-in-out infinite}
+      @keyframes bootpulse{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(.88);opacity:.6}}
+    </style>
+  </head>
+  <body class="bg-[#f3f5f1] text-[#1f2937] font-['Inter',-apple-system,BlinkMacSystemFont,sans-serif] antialiased">
+    <div id="root"><div class="boot"><div class="boot-logo"></div></div></div>
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
+        });
+      }
+    </script>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
