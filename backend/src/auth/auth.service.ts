@@ -11,6 +11,7 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { randomBytes } from 'crypto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { BranchService } from '../common/branch.service';
@@ -141,6 +142,52 @@ export class AuthService {
         email: user.email,
         role: user.role,
       },
+    };
+  }
+
+  /** Sign in / sign up with a Google ID token. Creates the account on first use. */
+  async googleLogin(credential: string) {
+    const clientId = process.env.GOOGLE_CLIENT_ID;
+    if (!clientId) {
+      throw new BadRequestException('Вход через Google не настроен (GOOGLE_CLIENT_ID).');
+    }
+
+    let info: { aud?: string; email?: string; email_verified?: string | boolean };
+    try {
+      const res = await fetch(
+        `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+      );
+      if (!res.ok) throw new Error(`tokeninfo ${res.status}`);
+      info = await res.json();
+    } catch {
+      throw new UnauthorizedException('Не удалось подтвердить аккаунт Google.');
+    }
+
+    const verified = info.email_verified === true || info.email_verified === 'true';
+    if (info.aud !== clientId || !info.email || !verified) {
+      throw new UnauthorizedException('Аккаунт Google не прошёл проверку.');
+    }
+
+    const email = info.email.trim().toLowerCase();
+    let user = await this.prisma.user.findFirst({ where: { email } });
+
+    if (!user) {
+      const base = email.split('@')[0].replace(/[^a-z0-9._-]/g, '').slice(0, 24) || 'user';
+      let username = base;
+      for (let i = 0; i < 5; i++) {
+        const taken = await this.prisma.user.findUnique({ where: { username } });
+        if (!taken) break;
+        username = `${base}${Math.floor(1000 + Math.random() * 9000)}`;
+      }
+      const password = await bcrypt.hash(randomBytes(24).toString('hex'), 10);
+      user = await this.prisma.user.create({ data: { username, email, password } });
+      await this.branchService.ensureMainBranch(user.id);
+    }
+
+    const tokens = this.generateTokens(user.id, user.username);
+    return {
+      ...tokens,
+      user: { id: user.id, username: user.username, email: user.email, role: user.role },
     };
   }
 

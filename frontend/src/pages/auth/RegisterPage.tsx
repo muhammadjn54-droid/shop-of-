@@ -2,13 +2,14 @@ import { useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
+import { GoogleButton } from '../../components/auth/GoogleButton';
 import { AuthShell, AuthField } from '../../components/auth/AuthShell';
 import { Lock, Mail, Loader2, Eye, EyeOff, ArrowRight, AlertCircle, Check, X } from 'lucide-react';
 import { formatRegisterError } from '../../utils/authErrors';
 
 export const RegisterPage = () => {
   const navigate = useNavigate();
-  const { register } = useAuth();
+  const { register, loginWithGoogle } = useAuth();
   const { t } = useLanguage();
 
   const [formData, setFormData] = useState({
@@ -206,6 +207,25 @@ export const RegisterPage = () => {
         >
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Создание...</span></> : <><span>{t('registerSubmitBtn')}</span><ArrowRight className="w-4 h-4" /></>}
         </button>
+
+        <div className="flex items-center gap-3 text-xs text-[#5b6b63]">
+          <span className="flex-1 h-px bg-[#e4e8e1] dark:bg-[#26382f]" />
+          <span>или</span>
+          <span className="flex-1 h-px bg-[#e4e8e1] dark:bg-[#26382f]" />
+        </div>
+
+        <GoogleButton
+          text="signup_with"
+          onCredential={async (credential) => {
+            setErrorMessage('');
+            try {
+              await loginWithGoogle(credential);
+              navigate('/');
+            } catch (err: unknown) {
+              setErrorMessage(err instanceof Error ? err.message : 'Не удалось зарегистрироваться через Google');
+            }
+          }}
+        />
 
         <p className="text-center text-sm text-[#5b6b63]">
           {t('hasAccount')}{' '}

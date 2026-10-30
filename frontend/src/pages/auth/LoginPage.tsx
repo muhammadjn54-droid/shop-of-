@@ -3,12 +3,13 @@ import { Link, useNavigate } from 'react-router';
 import { useAuth } from '../../context/AuthContext';
 import { useLanguage } from '../../context/LanguageContext';
 import { formatLoginError } from '../../utils/authErrors';
+import { GoogleButton } from '../../components/auth/GoogleButton';
 import { AuthShell, AuthField } from '../../components/auth/AuthShell';
 import { Lock, Mail, Loader2, ArrowRight, Eye, EyeOff, AlertCircle } from 'lucide-react';
 
 export const LoginPage = () => {
   const navigate = useNavigate();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const { t } = useLanguage();
 
   const [username, setUsername] = useState('');
@@ -103,6 +104,25 @@ export const LoginPage = () => {
         >
           {loading ? <><Loader2 className="w-4 h-4 animate-spin" /><span>Вход...</span></> : <><span>{t('loginSubmitBtn')}</span><ArrowRight className="w-4 h-4" /></>}
         </button>
+
+        <div className="flex items-center gap-3 text-xs text-[#5b6b63]">
+          <span className="flex-1 h-px bg-[#e4e8e1] dark:bg-[#26382f]" />
+          <span>или</span>
+          <span className="flex-1 h-px bg-[#e4e8e1] dark:bg-[#26382f]" />
+        </div>
+
+        <GoogleButton
+          text="signin_with"
+          onCredential={async (credential) => {
+            setErrorMessage('');
+            try {
+              await loginWithGoogle(credential);
+              navigate('/');
+            } catch (err: unknown) {
+              setErrorMessage(err instanceof Error ? err.message : 'Не удалось войти через Google');
+            }
+          }}
+        />
 
         <p className="text-center text-sm text-[#5b6b63]">
           {t('noAccount')}{' '}

@@ -23,6 +23,11 @@ export const register = async (userData: {
   return response.data;
 };
 
+export const googleAuth = async (credential: string): Promise<AuthTokens> => {
+  const response = await api.post<AuthTokens>('/api/auth/google', { credential });
+  return response.data;
+};
+
 export const requestPasswordReset = async (
   email: string
 ): Promise<{ message: string }> => {

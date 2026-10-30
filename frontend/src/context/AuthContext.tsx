@@ -10,6 +10,7 @@ import {
 import {
   login as apiLogin,
   register as apiRegister,
+  googleAuth as apiGoogleAuth,
   getMe,
   logoutUser,
 } from '../api/auth';
@@ -28,6 +29,7 @@ export interface AuthContextType {
     password: string;
     password2?: string;
   }) => Promise<User>;
+  loginWithGoogle: (credential: string) => Promise<User>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   setUser: Dispatch<SetStateAction<User | null>>;
@@ -131,6 +133,25 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   // Register handler
+  const loginWithGoogle = async (credential: string): Promise<User> => {
+    setLoading(true);
+    try {
+      const data = await apiGoogleAuth(credential);
+      if (data.access) localStorage.setItem('access', data.access);
+      if (data.refresh) localStorage.setItem('refresh', data.refresh);
+
+      const userData = await getMe();
+      setUser(userData);
+      localStorage.setItem('shop_user', JSON.stringify(userData));
+      toast.success('Добро пожаловать, ' + (userData.username || 'пользователь') + '!');
+      return userData;
+    } catch (err: unknown) {
+      throw new Error(formatLoginError(err));
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const register = async (userData: {
     username: string;
     email?: string;
@@ -196,6 +217,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         isAuthenticated: !!user,
         login,
         register,
+        loginWithGoogle,
         logout,
         refreshUser,
         setUser,
